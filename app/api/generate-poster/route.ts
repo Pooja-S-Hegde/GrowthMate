@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({
-                    prompt: designPrompt,
+                    prompt: finalPrompt,
                     negative_prompt: "text, words, letters, brand name, writing, label, typography, watermark, signature, banner, poster template, mockup template, placeholder text, fake text, logo, alphabet, numbers, frames, borders, messy, cluttered, text boxes",
                     modelId: 'de7d3faf-762f-48e0-b3b7-9d0ac3a3fcf3', // Leonardo Phoenix (Best for text/posters)
                     width: 832,

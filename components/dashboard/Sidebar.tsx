@@ -8,10 +8,8 @@ import {
     Handshake,
     Users,
     Settings,
-    LogOut,
     Activity
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 interface SidebarProps {
@@ -21,12 +19,6 @@ interface SidebarProps {
 export function Sidebar({ isOpen }: SidebarProps) {
     const pathname = usePathname()
     const router = useRouter()
-    const supabase = createClient()
-
-    const handleLogout = async () => {
-        await supabase.auth.signOut()
-        router.push('/login')
-    }
 
     const navItems = [
         { name: 'Business Orchestrator', href: '/dashboard/orchestrator', icon: Activity },

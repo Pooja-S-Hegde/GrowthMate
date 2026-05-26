@@ -26,7 +26,7 @@ export function BusinessOrchestrator() {
     const [loading, setLoading] = useState(false)
     const [result, setResult] = useState<OrchestratorResult | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [autoMode, setAutoMode] = useState(false)
+    const autoMode = false
 
     const [formData, setFormData] = useState({
         revenue_trend: 'Stable',
