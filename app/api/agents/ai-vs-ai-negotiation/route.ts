@@ -1,6 +1,30 @@
 import { NextRequest } from 'next/server'
 import Groq from 'groq-sdk'
 
+async function searchDuckDuckGo(query: string): Promise<string> {
+    try {
+        const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        })
+        if (!response.ok) throw new Error('Search failed')
+        const html = await response.text()
+        
+        const snippets: string[] = []
+        const regex = /<a class="result__snippet[^>]*>([\s\S]*?)<\/a>/g
+        let match
+        while ((match = regex.exec(html)) !== null && snippets.length < 5) {
+            const text = match[1].replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').trim()
+            snippets.push(text)
+        }
+        return snippets.join('\n')
+    } catch (e) {
+        console.error("Search error:", e)
+        return ""
+    }
+}
+
 export async function POST(request: NextRequest) {
     // Parse body BEFORE creating stream
     const body = await request.json()
@@ -34,20 +58,34 @@ export async function POST(request: NextRequest) {
                     asking_price = parseInt(manual_price)
                     console.log(`💰 Using user-provided price: ₹${asking_price} for ${product_name}`)
                 } else {
-                    // Step 1: AI estimates market price
-                    console.log(`🤖 Estimating market price for ${product_name}...`)
+                    // Step 1: AI estimates market price with real-time web search grounding
+                    console.log(`🔍 Searching live market prices for "${product_name}"...`)
+                    const searchContext = await searchDuckDuckGo(`${product_name} price in India`)
+
+                    console.log(`🤖 Estimating market price for ${product_name} using live search results...`)
                     const priceEstimateResponse = await groq.chat.completions.create({
                         messages: [{
                             role: "user",
-                            content: `Estimate the current market price in Indian Rupees (₹) for "${product_name}". Return ONLY a number, no currency symbol or explanation. Be realistic based on current market conditions.`
+                            content: `You are an expert pricing research agent. Your task is to estimate a realistic current market price in Indian Rupees (₹) for the product "${product_name}" using the live web search results below.
+
+Live Search Results:
+${searchContext}
+
+Guidelines:
+1. Review the search results for mentions of prices, range, or launch prices.
+2. If the product is a future/unreleased model (e.g. S26), base your estimate on its current predecessor's price (e.g. S24, S25) or expected premium pricing.
+3. Be realistic based on current market conditions in India.
+4. Return your final estimated number wrapped in a tag like [ESTIMATED_PRICE:XXXX] where XXXX is only digits.
+5. Do not include the product name, model numbers like "S26" or "15", or any explanation in your response. Only return the tag. For example: [ESTIMATED_PRICE:75000].`
                         }],
-                        model: "llama-3.1-8b-instant",
-                        temperature: 0.5,
-                        max_tokens: 20
+                        model: "llama-3.3-70b-versatile",
+                        temperature: 0.1,
+                        max_tokens: 30
                     })
 
-                    const priceText = priceEstimateResponse.choices[0]?.message?.content?.trim() || "50000"
-                    asking_price = parseInt(priceText.replace(/[^0-9]/g, '')) || 50000
+                    const priceText = priceEstimateResponse.choices[0]?.message?.content?.trim() || ""
+                    const match = priceText.match(/\[ESTIMATED_PRICE:\s*(\d+)\s*\]/i)
+                    asking_price = match ? parseInt(match[1]) : 50000
                     console.log(`💰 AI Estimated price: ₹${asking_price}`)
                 }
 
@@ -70,7 +108,7 @@ export async function POST(request: NextRequest) {
                         role: "user",
                         content: `Generate a brief, realistic product description for "${product_name}". Include key features, condition, or specifications in 1-2 sentences. Be concise and factual.`
                     }],
-                    model: "llama-3.1-8b-instant",
+                    model: "llama-3.3-70b-versatile",
                     temperature: 0.7,
                     max_tokens: 100
                 })
@@ -82,7 +120,7 @@ export async function POST(request: NextRequest) {
                         role: "user",
                         content: `Generate a brief market context for "${product_name}" in 1 sentence. Mention demand, competition, or market conditions.`
                     }],
-                    model: "llama-3.1-8b-instant",
+                    model: "llama-3.3-70b-versatile",
                     temperature: 0.7,
                     max_tokens: 50
                 })
@@ -279,7 +317,7 @@ Now respond as Seller Agent.`
                         messages: [
                             { role: "system", content: systemPrompt }
                         ],
-                        model: "llama-3.1-8b-instant",
+                        model: "llama-3.3-70b-versatile",
                         temperature: 0.7,
                         max_tokens: 500
                     })
